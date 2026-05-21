@@ -12,6 +12,11 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [comparisons, setComparisons] = useState(null);
   const [embedding3d, setEmbedding3d] = useState(null);
+  const [analogyA, setAnalogyA] = useState("king");
+  const [analogyB, setAnalogyB] = useState("man");
+  const [analogyC, setAnalogyC] = useState("woman");
+  const [analogyResult, setAnalogyResult] = useState(null);
+  const [analogyLoading, setAnalogyLoading] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/loss`).then((r) => r.json()).then(setLoss)
@@ -26,6 +31,7 @@ export default function App() {
 
 
   useEffect(() => { search();  }, []);
+  useEffect(() => { searchAnalogy(); }, []);
 
   async function search(e) {
     e?.preventDefault();
@@ -36,6 +42,19 @@ export default function App() {
       setResult(await r.json());
     } catch { setResult({ error: true }); }
     setLoading(false);
+  }
+
+  async function searchAnalogy(e) {
+    e?.preventDefault();
+    if (!analogyA.trim() || !analogyB.trim() || !analogyC.trim()) return;
+    setAnalogyLoading(true);
+    try {
+      const r = await fetch(
+        `${API}/analogy?a=${encodeURIComponent(analogyA)}&b=${encodeURIComponent(analogyB)}&c=${encodeURIComponent(analogyC)}`
+      );
+      setAnalogyResult(await r.json());
+    } catch { setAnalogyResult({ error: true }); }
+    setAnalogyLoading(false);
   }
 
   const epochs = loss?.loss_history?.length ?? null;
@@ -62,7 +81,7 @@ export default function App() {
 
         <section style={S.card}>
           <div style={S.cardHead}>
-            <div style={S.badge}>01</div>
+            <div style={S.badge}>1</div>
             <div>
               <h2 style={S.h2}>Nearest neighbours</h2>
             </div>
@@ -82,7 +101,7 @@ export default function App() {
               />
             </div>
             <button style={S.btn} disabled={loading} className="w2v-btn">
-              {loading ? <Spinner /> : <>find <Arrow /></>}
+              {loading ? <Spinner /> : "find"}
             </button>
           </form>
 
@@ -100,6 +119,57 @@ export default function App() {
                       <div style={{
                         ...S.barFill,
                         width: `${Math.max(2, (n.score / maxScore) * 100)}%`,
+                      }} />
+                    </div>
+                    <span style={S.scoreNum}>{n.score.toFixed(3)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </section>
+
+        <section style={S.card}>
+          <div style={S.cardHead}>
+            <div style={S.badge}>2</div>
+            <div>
+              <h2 style={S.h2}>Word analogy</h2>
+            </div>
+          </div>
+
+          <form onSubmit={searchAnalogy} style={S.analogyRow}>
+            <input style={S.analogyInput} className="w2v-input" value={analogyA}
+              onChange={(e) => setAnalogyA(e.target.value)} placeholder="king"
+              spellCheck={false} autoComplete="off" />
+            <span style={S.analogyOp}>−</span>
+            <input style={S.analogyInput} className="w2v-input" value={analogyB}
+              onChange={(e) => setAnalogyB(e.target.value)} placeholder="man"
+              spellCheck={false} autoComplete="off" />
+            <span style={S.analogyOp}>+</span>
+            <input style={S.analogyInput} className="w2v-input" value={analogyC}
+              onChange={(e) => setAnalogyC(e.target.value)} placeholder="woman"
+              spellCheck={false} autoComplete="off" />
+            <span style={S.analogyOp}>=</span>
+            <button style={S.btn} disabled={analogyLoading} className="w2v-btn">
+              {analogyLoading ? <Spinner /> : "find"}
+            </button>
+          </form>
+
+          <div style={S.resultBox}>
+            {analogyResult?.error && <Message kind="err">Server not reachable — is uvicorn running on :8000?</Message>}
+            {analogyResult && !analogyResult.error && !analogyResult.found && (
+              <Message kind="muted">Unknown token(s): {analogyResult.missing?.join(", ")}</Message>
+            )}
+            {analogyResult?.found && (
+              <ol style={S.list}>
+                {analogyResult.analogy.map((n, i) => (
+                  <li key={n.token} style={{ ...S.li, animationDelay: `${i * 30}ms` }} className="w2v-row">
+                    <span style={S.rank}>{String(i + 1).padStart(2, "0")}</span>
+                    <span style={S.tok}>{n.token}</span>
+                    <div style={S.barTrack}>
+                      <div style={{
+                        ...S.barFill,
+                        width: `${Math.max(2, (n.score / (analogyResult.analogy[0]?.score ?? 1)) * 100)}%`,
                       }} />
                     </div>
                     <span style={S.scoreNum}>{n.score.toFixed(3)}</span>
@@ -508,6 +578,22 @@ const S = {
     letterSpacing: "-0.01em" },
 
   searchRow: { display: "flex", gap: 10, marginBottom: 8 },
+  analogyRow: {
+    display: "flex", gap: 8, marginBottom: 8,
+    alignItems: "center", flexWrap: "wrap",
+  },
+  analogyInput: {
+    flex: "1 1 90px", minWidth: 0,
+    padding: "13px 14px",
+    border: "1.5px solid #E5E2F2", borderRadius: 12,
+    fontSize: 15, fontFamily: "inherit", color: "#15152b",
+    background: "#FBFAFE",
+    transition: "border-color .15s ease, box-shadow .15s ease",
+  },
+  analogyOp: {
+    fontSize: 20, fontWeight: 700, color: "#534AB7",
+    padding: "0 2px", userSelect: "none",
+  },
   searchWrap: { position: "relative", flex: 1 },
   searchIcon: { position: "absolute", left: 14, top: "50%",
     transform: "translateY(-50%)", pointerEvents: "none" },
