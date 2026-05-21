@@ -30,11 +30,6 @@ _W_3d = _centered @ _Vt[:3].T
 _W_3d = _W_3d / (np.abs(_W_3d).max() + 1e-10)
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "vocab_size": len(_vocab),
-            "dim": int(_W.shape[1])}
-
 
 @app.get("/neighbours")
 def neighbours(word: str, top: int = 8):
